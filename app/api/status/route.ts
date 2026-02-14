@@ -23,10 +23,26 @@ function getTodayDatePst(offsetDays = 0) {
 }
 
 function getCloseTimeIso() {
-  // Midnight PT expressed in UTC for the current "PST date"
-  const today = getTodayDatePst();
-  // Approx: midnight PT -> 08:00Z during standard time. Good enough for v1 display.
-  return new Date(`${today}T08:00:00.000Z`).toISOString();
+  // Close is NEXT midnight in America/Los_Angeles
+  const tomorrow = getTodayDatePst(1);
+
+  // Best-effort: handle DST by reading the LA offset (GMT-7 or GMT-8)
+  const probe = new Date(); // "now"
+  const tzName = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Los_Angeles",
+    timeZoneName: "shortOffset",
+  })
+    .formatToParts(probe)
+    .find((p) => p.type === "timeZoneName")?.value || "GMT-8";
+
+  // tzName looks like "GMT-8" or "GMT-7"
+  const match = tzName.match(/GMT([+-]\d+)/);
+  const offsetHours = match ? parseInt(match[1], 10) : -8;
+
+  // LA midnight -> UTC is +8h in standard time, +7h in daylight time
+  const utcHour = offsetHours === -7 ? 7 : 8;
+
+  return new Date(`${tomorrow}T0${utcHour}:00:00.000Z`).toISOString();
 }
 
 export async function GET() {
