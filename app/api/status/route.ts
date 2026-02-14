@@ -35,17 +35,20 @@ export async function GET() {
   const closeAt = nextMidnightPT(now);
   const secondsRemaining = secondsUntilNextMidnightPT(now);
 
-  return Response.json({
-  now_iso,
-  today_date_pst,
-  item,
-  is_open,
-  entries_today_count,
-  close_time_iso,
-  seconds_remaining,
-  yesterday_winner
-}, {
-  headers: {
-    "Cache-Control": "no-store, max-age=0"
+ return Response.json(
+  {
+    now_iso,
+    today_date_pst,
+    item,
+    is_open,
+    entries_today_count,
+    close_time_iso,
+    seconds_remaining,
+    yesterday_winner,
+  },
+  {
+    headers: {
+      "Cache-Control": "no-store, max-age=0",
+    },
   }
-});
+);} 
