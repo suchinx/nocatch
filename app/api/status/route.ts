@@ -51,5 +51,3 @@ export async function GET() {
     }
   );
 }
-  }
-);} 
