@@ -1,54 +1,55 @@
 export const dynamic = "force-dynamic";
-import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { ptDateString, secondsUntilNextMidnightPT, nextMidnightPT } from "@/lib/time";
 
-export const runtime = "nodejs";
+import { getAdminClient } from "@/lib/supabase-admin";
+import { getTodayDatePst, getCloseTimeIso, getSecondsRemaining } from "@/lib/time";
 
 export async function GET() {
-  const sb = supabaseAdmin();
-  const now = new Date();
-  const today = ptDateString(now);
+  const supabase = getAdminClient();
 
-  const { data: item } = await sb
+  const now_iso = new Date().toISOString();
+  const today_date_pst = getTodayDatePst();
+
+  // Fetch today's item (if any)
+  const { data: item } = await supabase
     .from("items")
     .select("*")
-    .eq("date_pst", today)
+    .eq("date_pst", today_date_pst)
     .maybeSingle();
 
-  // If no item exists, still allow site to function (admin can add later)
-  const { count: entriesCount } = await sb
+  // Count today's entries
+  const { count: entries_today_count } = await supabase
     .from("entries")
     .select("*", { count: "exact", head: true })
-    .eq("date_pst", today);
+    .eq("date_pst", today_date_pst);
 
-  // Yesterday's winner
-  const yesterday = new Date(now.getTime() - 26 * 3600 * 1000); // safe
-  const ydate = ptDateString(yesterday);
-
-  const { data: ywin } = await sb
-    .from("winners")
-    .select("date_pst, display_name, display_state, item_id")
-    .eq("date_pst", ydate)
+  // Yesterday's winner (for display)
+  const yesterday_date_pst = getTodayDatePst(-1);
+  const { data: yesterday_winner } = await supabase
+    .from("winners_view")
+    .select("*")
+    .eq("date_pst", yesterday_date_pst)
     .maybeSingle();
 
-  const closeAt = nextMidnightPT(now);
-  const secondsRemaining = secondsUntilNextMidnightPT(now);
+  const close_time_iso = getCloseTimeIso();
+  const seconds_remaining = getSecondsRemaining();
 
- return Response.json(
-  {
-    now_iso,
-    today_date_pst,
-    item,
-    is_open,
-    entries_today_count,
-    close_time_iso,
-    seconds_remaining,
-    yesterday_winner,
-  },
-  {
-    headers: {
-      "Cache-Control": "no-store, max-age=0",
+  return Response.json(
+    {
+      now_iso,
+      today_date_pst,
+      item: item ?? null,
+      is_open: item?.is_open ?? true,
+      entries_today_count: entries_today_count ?? 0,
+      close_time_iso,
+      seconds_remaining,
+      yesterday_winner: yesterday_winner ?? null,
     },
+    {
+      headers: {
+        "Cache-Control": "no-store, max-age=0",
+      },
+    }
+  );
+}
   }
 );} 
