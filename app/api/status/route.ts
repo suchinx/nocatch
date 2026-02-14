@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { ptDateString, secondsUntilNextMidnightPT, nextMidnightPT } from "@/lib/time";
@@ -34,14 +35,17 @@ export async function GET() {
   const closeAt = nextMidnightPT(now);
   const secondsRemaining = secondsUntilNextMidnightPT(now);
 
-  return NextResponse.json({
-    now_iso: now.toISOString(),
-    today_date_pst: today,
-    item: item ?? null,
-    is_open: item ? item.is_open : true,
-    entries_today_count: entriesCount ?? 0,
-    close_time_iso: closeAt.toISOString(),
-    seconds_remaining: secondsRemaining,
-    yesterday_winner: ywin ?? null
-  });
-}
+  return Response.json({
+  now_iso,
+  today_date_pst,
+  item,
+  is_open,
+  entries_today_count,
+  close_time_iso,
+  seconds_remaining,
+  yesterday_winner
+}, {
+  headers: {
+    "Cache-Control": "no-store, max-age=0"
+  }
+});
