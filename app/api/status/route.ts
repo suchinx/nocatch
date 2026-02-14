@@ -1,37 +1,68 @@
 export const dynamic = "force-dynamic";
 
-import { getAdminClient } from "@/lib/supabase-admin";
-import { getTodayDatePst, getCloseTimeIso, getSecondsRemaining } from "@/lib/time";
+import { createClient } from "@supabase/supabase-js";
+
+function getTodayDatePst(offsetDays = 0) {
+  const now = new Date();
+  const fmt = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Los_Angeles",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const parts = fmt.formatToParts(now);
+  const y = parts.find((p) => p.type === "year")!.value;
+  const m = parts.find((p) => p.type === "month")!.value;
+  const d = parts.find((p) => p.type === "day")!.value;
+  const base = new Date(`${y}-${m}-${d}T00:00:00-08:00`);
+  base.setDate(base.getDate() + offsetDays);
+  const y2 = base.getFullYear();
+  const m2 = String(base.getMonth() + 1).padStart(2, "0");
+  const d2 = String(base.getDate()).padStart(2, "0");
+  return `${y2}-${m2}-${d2}`;
+}
+
+function getCloseTimeIso() {
+  // Midnight PT expressed in UTC for the current "PST date"
+  const today = getTodayDatePst();
+  // Approx: midnight PT -> 08:00Z during standard time. Good enough for v1 display.
+  return new Date(`${today}T08:00:00.000Z`).toISOString();
+}
 
 export async function GET() {
-  const supabase = getAdminClient();
+  const supabaseUrl = process.env.SUPABASE_URL!;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  const supabase = createClient(supabaseUrl, serviceKey, {
+    auth: { persistSession: false },
+  });
 
   const now_iso = new Date().toISOString();
   const today_date_pst = getTodayDatePst();
+  const yesterday_date_pst = getTodayDatePst(-1);
 
-  // Fetch today's item (if any)
   const { data: item } = await supabase
     .from("items")
     .select("*")
     .eq("date_pst", today_date_pst)
     .maybeSingle();
 
-  // Count today's entries
   const { count: entries_today_count } = await supabase
     .from("entries")
     .select("*", { count: "exact", head: true })
     .eq("date_pst", today_date_pst);
 
-  // Yesterday's winner (for display)
-  const yesterday_date_pst = getTodayDatePst(-1);
   const { data: yesterday_winner } = await supabase
     .from("winners_view")
     .select("*")
     .eq("date_pst", yesterday_date_pst)
     .maybeSingle();
 
+  // Seconds remaining until close (best-effort display)
   const close_time_iso = getCloseTimeIso();
-  const seconds_remaining = getSecondsRemaining();
+  const seconds_remaining = Math.max(
+    0,
+    Math.floor((new Date(close_time_iso).getTime() - Date.now()) / 1000)
+  );
 
   return Response.json(
     {
@@ -45,9 +76,7 @@ export async function GET() {
       yesterday_winner: yesterday_winner ?? null,
     },
     {
-      headers: {
-        "Cache-Control": "no-store, max-age=0",
-      },
+      headers: { "Cache-Control": "no-store, max-age=0" },
     }
   );
 }
